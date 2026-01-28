@@ -21,7 +21,7 @@
 # TODO(Steven): Bump these versions
 ARG CUDA_VERSION=12.4.1
 ARG OS_VERSION=22.04
-FROM nvidia/cuda:${CUDA_VERSION}-base-ubuntu${OS_VERSION}
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${OS_VERSION}
 
 # Define Python version argument
 ARG PYTHON_VERSION=3.10
@@ -32,7 +32,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PATH=/lerobot/.venv/bin:$PATH \
     CUDA_VISIBLE_DEVICES=0 \
     TEST_TYPE=single_gpu \
-    DEVICE=cuda
+    DEVICE=cuda \
+    TRANSFORMERS_NO_FAST=1
 
 # Install Python, system dependencies, and uv (as root)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -43,9 +44,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && add-apt-repository -y ppa:deadsnakes/ppa \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
-       python${PYTHON_VERSION} \
-       python${PYTHON_VERSION}-venv \
-       python${PYTHON_VERSION}-dev \
+    python${PYTHON_VERSION} \
+    python${PYTHON_VERSION}-venv \
+    python${PYTHON_VERSION}-dev \
     && curl -LsSf https://astral.sh/uv/install.sh | sh \
     && mv /root/.local/bin/uv /usr/local/bin/uv \
     && useradd --create-home --shell /bin/bash user_lerobot \
@@ -83,11 +84,25 @@ RUN if [ "$UNBOUND_DEPS" = "true" ]; then \
     echo "Dependencies unbound:" && cat pyproject.toml; \
     fi
 
-RUN uv pip install --no-cache ".[all]"
+RUN uv pip install --no-cache ".[all]" && \
+    uv pip install --no-cache \
+    sentencepiece \
+    tokenizers \
+    tiktoken \
+    protobuf \
+    huggingface_hub \
+    accelerate \
+    bitsandbytes
 
 # Copy the rest of the application source code
 # Make sure to have the git-LFS files for testing
 COPY --chown=user_lerobot:user_lerobot . .
 
+RUN git clone https://github.com/huggingface/transformers.git && \
+    cd transformers && \
+    uv pip install -e .
+
+RUN uv pip install --no-cache-dir flash-attn --no-build-isolation
+
 # Set the default command
-CMD ["/bin/bash"]
+CMD ["sleep", "infinity"]
