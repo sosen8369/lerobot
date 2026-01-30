@@ -22,11 +22,18 @@ pip install runpod dotenv
 - --gpu: pod가 사용할 gpu의 id값 입니다.
 - --gpu-count: pod가 사용할 gpu의 수량 입니다.
 - --time-limit: python 스크립트로 제어할 pod의 수명입니다. 초 단위로 입력하며, 기본 값은 1시간(3600초) 입니다.
+- --start-command: start command로 사용할 파일의 이름입니다. `train_in_runpod.py`를 기준으로 `./start_commands/` 폴더 내 저장된 파일을 인식합니다. 지정하지 않을 경우 template에 작성된 start command를 사용합니다. 자세한 사항은 **참고사항**을 확인해 주십시오.
 - --spot: 해당 인자를 포함할 경우 spot pod로 생성합니다. 만약 포함되지 않을 경우 on demand로 생성합니다.
 - --not-terminate: 해당 인자를 포함할 경우, 해당 pod는 terminate되지 않습니다. 수동으로 해당 pod를 terminate해야 합니다.
 
+## start-command 관련 참고사항
+1. 실행 스크립트를 기준으로 `./start_commands/` 폴더 내부의 파일을 탐색합니다. <br> 예시: `./start_commands/act-command-v1.sh`에 파일이 있을 경우, 실행 인자로 `--start-command act-command-v1.sh`를 추가.
+2. 작성된 항목은 pod의 start command에 `bash -lc {command}`로 입력됩니다. 따라서 command가 한 줄로 실행되므로, `&&` 등을 이용하여 작성해야 합니다. <br> ```huggingface-cli login --token "$HUGGINGFACE_TOKEN" && \ wandb login "$WANDB_API_KEY"```
+3. train_in_runpod.py는 pod를 생성하고, 만들어진 pod가 stop되면 terminate합니다. 따라서 실행 스크립트 마지막 command로 스스로를 종료해야 합니다. 예시 명령어는 다음과 같습니다. <br> `runpodctl stop pod "$RUNPOD_POD_ID"` <br> 이때, `$RUNPOD_POD_ID`는 기본적으로 설정된 환경 변수로, 추가적인 필요가 없는 이상 추가적으로 설정하지 않아도 괜찮습니다.
+
+
 ## GPU ID 목록
-### 주의! 아래 항목은 `runpod.get_gpus()`의 결과 입니다. 아래 결과에 gpu가 있더라도 해당 gpu를 이용해 pod를 만들 수 없을 가능성도 있습니다. 
+### 주의! 아래 항목은 2026-01-29 기준 `runpod.get_gpus()`의 결과 입니다. 아래 결과에 gpu가 있더라도 해당 gpu를 이용해 pod를 만들 수 없을 가능성도 있습니다. 
 ```
 [{'id': 'AMD Instinct MI300X OAM', 'displayName': 'MI300X', 'memoryInGb': 192},
  {'id': 'NVIDIA A100 80GB PCIe', 'displayName': 'A100 PCIe', 'memoryInGb': 80},

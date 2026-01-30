@@ -20,29 +20,35 @@ def main(args):
             'Content-Type': 'application/json'
         }
 
-        pod_id = ''
-        if args.spot:
-            data = {
-                'name': args.name,
-                'templateId': args.template_id,
-                'gpuTypeIds': [args.gpu],
-                'gpuCount': args.gpu_count,
-                'interruptible': True
-            }
-            response = requests.post(f'{base_url}/pods', headers=headers, json=data)
-            if response.status_code == 500:
-                print(response.json()['error'])
-            response.raise_for_status()
+        cmd = ''
+        if not args.start_command == 'None':
+            with open(f'./start_commands/{args.start_command}') as f:
+                cmd = f.read()
 
-            pod_id = response.json()['id']
-        else:
-            response = runpod.create_pod(
-                name=args.name,
-                template_id=args.template_id,
-                gpu_type_id=args.gpu,
-                gpu_count=args.gpu_count,
-            )
-            pod_id = response['id']
+            if not cmd:
+                raise FileNotFoundError(f'Cannot read {args.start_command}.')
+            
+        pod_id = ''
+        data = {
+            'name': args.name,
+            'templateId': args.template_id,
+            'gpuTypeIds': [args.gpu],
+            'gpuCount': args.gpu_count,
+        }
+        if args.spot:
+            data['interruptible'] = True
+        if cmd:
+            data['dockerStartCmd'] = ['bash', '-lc', cmd]
+
+        response = requests.post(f'{base_url}/pods', headers=headers, json=data)
+        if response.status_code == 500:
+            print(response.json()['error'])
+        response.raise_for_status()
+
+        pod_id = response.json()['id']
+
+        if not pod_id:
+            raise ValueError('Cannot get pod_id.')
 
         start_time = time.time()
         while True:
@@ -52,7 +58,6 @@ def main(args):
                 break
 
             if response['desiredStatus'] == 'EXITED':
-                runpod.terminate_pod(pod_id=pod_id)
                 break
 
             if time.time() - start_time > args.time_limit:
@@ -80,6 +85,7 @@ if __name__ == '__main__':
     parser.add_argument('--spot', action='store_true')
     parser.add_argument('--time-limit', type=float, default=60 * 60)
     parser.add_argument('--not-terminate', action='store_true')
+    parser.add_argument('--start-command', type=str, default='None')
 
     args = parser.parse_args()
 
