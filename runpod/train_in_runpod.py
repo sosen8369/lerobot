@@ -13,7 +13,7 @@ import requests
 from dotenv import load_dotenv
 
 # ---
-command_folder_path = './command_set'
+command_folder_path = './model'
 
 class CmdType(Enum):
     HF_LOGIN = "HF_LOGIN"
